@@ -664,6 +664,8 @@ git commit -m "feat: add styles for spin-rate dropdown and RUSH spin buttons"
 
 ## Task 8: script.js — game state and normal-mode flow
 
+> **Post-implementation fix:** code review caught that `handleStart()` (below) originally did nothing on a plain miss, leaving the screen unchanged with no visible feedback. Fixed to call `setState('lose_result')` on a miss, matching ghouldeka's original per-spin-always-shows-a-result behavior. The code block below already reflects the fix.
+
 **Files:**
 - Create: `C:\Users\ab_99\pachinko-simulator-ghoul\script.js`
 
@@ -762,7 +764,9 @@ function runNormalSpin() {
 
 function handleStart() {
   if (checkEigyoAlert()) return;
-  runNormalSpin();
+  if (!runNormalSpin()) {
+    setState('lose_result');
+  }
 }
 
 function autoSpin(count) {
