@@ -44,7 +44,7 @@ cp "/c/Users/ab_99/pachinko-simulator-ghouldeka/画像/RUSH中　追加ボーナ
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test \"test/**/*.test.js\""
   }
 }
 ```
@@ -94,7 +94,7 @@ test('calcSpinCost returns balls-per-spin for a given spins-per-1000-yen rate', 
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /c/Users/ab_99/pachinko-simulator-ghoul && node --test test/`
+Run: `cd /c/Users/ab_99/pachinko-simulator-ghoul && node --test "test/**/*.test.js"`
 Expected: FAIL — `Cannot find module '../logic.js'`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -122,7 +122,7 @@ if (typeof module !== 'undefined' && module.exports) {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /c/Users/ab_99/pachinko-simulator-ghoul && node --test test/`
+Run: `cd /c/Users/ab_99/pachinko-simulator-ghoul && node --test "test/**/*.test.js"`
 Expected: PASS (2 tests)
 
 - [ ] **Step 5: Commit**
@@ -198,7 +198,7 @@ test('rollZugarLtChallenge is true only under P_ZUGAR_LT (50%)', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /c/Users/ab_99/pachinko-simulator-ghoul && node --test test/`
+Run: `cd /c/Users/ab_99/pachinko-simulator-ghoul && node --test "test/**/*.test.js"`
 Expected: FAIL — `logic.P_ZUGAR` etc. are undefined, `spinNormal` is not a function
 
 - [ ] **Step 3: Write minimal implementation**
@@ -233,7 +233,7 @@ Update the `module.exports` object to also include:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /c/Users/ab_99/pachinko-simulator-ghoul && node --test test/`
+Run: `cd /c/Users/ab_99/pachinko-simulator-ghoul && node --test "test/**/*.test.js"`
 Expected: PASS (all tests so far)
 
 - [ ] **Step 5: Commit**
@@ -274,7 +274,7 @@ test('rollRushHitType returns big under P_RUSH_BIG (3%), small otherwise', () =>
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /c/Users/ab_99/pachinko-simulator-ghoul && node --test test/`
+Run: `cd /c/Users/ab_99/pachinko-simulator-ghoul && node --test "test/**/*.test.js"`
 Expected: FAIL — `logic.P_RUSH` etc. are undefined
 
 - [ ] **Step 3: Write minimal implementation**
@@ -298,7 +298,7 @@ Update `module.exports` to also include: `P_RUSH, P_RUSH_BIG, spinRush, rollRush
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /c/Users/ab_99/pachinko-simulator-ghoul && node --test test/`
+Run: `cd /c/Users/ab_99/pachinko-simulator-ghoul && node --test "test/**/*.test.js"`
 Expected: PASS (all tests so far)
 
 - [ ] **Step 5: Commit**
@@ -384,7 +384,7 @@ test('applyRushSpin: hits accumulate chainCount and balls across repeated calls'
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /c/Users/ab_99/pachinko-simulator-ghoul && node --test test/`
+Run: `cd /c/Users/ab_99/pachinko-simulator-ghoul && node --test "test/**/*.test.js"`
 Expected: FAIL — `logic.createRushState` is not a function
 
 - [ ] **Step 3: Write minimal implementation**
@@ -437,7 +437,7 @@ Update `module.exports` to also include: `RUSH_ST_COUNT, createRushState, applyR
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /c/Users/ab_99/pachinko-simulator-ghoul && node --test test/`
+Run: `cd /c/Users/ab_99/pachinko-simulator-ghoul && node --test "test/**/*.test.js"`
 Expected: PASS (all tests — this is the full logic.js suite)
 
 - [ ] **Step 5: Commit**
@@ -1339,7 +1339,7 @@ git commit -m "feat: add rendering layer (screens, header stats, RUSH stats, log
 
 - [ ] **Step 1: Run the full logic.js test suite**
 
-Run: `cd /c/Users/ab_99/pachinko-simulator-ghoul && node --test test/`
+Run: `cd /c/Users/ab_99/pachinko-simulator-ghoul && node --test "test/**/*.test.js"`
 Expected: PASS, 0 failures
 
 - [ ] **Step 2: Open the page in a browser**
