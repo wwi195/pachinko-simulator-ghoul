@@ -164,6 +164,70 @@ function enterRush() {
   game.rush = createRushState();
 }
 
+// ---- RUSH(ST)中ハンドラ ----
+
+// 1回転処理。画面遷移が起きたら true を返す
+function runRushSpin(opts = {}) {
+  game.allRushStats.rushTotalSpins++;
+  const { rushState, outcome } = applyRushSpin(game.rush);
+  game.rush = rushState;
+
+  if (outcome === 'miss') {
+    if (!opts.silent) {
+      addLog(`ST残り${rushState.stRemaining}回`);
+      setState('rush_miss');
+      return true;
+    }
+    return false;
+  }
+
+  if (outcome === 'st_end') {
+    addLog('ST終了 → RUSHリザルトへ');
+    setState('rush_result');
+    return true;
+  }
+
+  const isBig = outcome === 'hit_big';
+  game.totalRushHits++;
+  game.allRushStats[isBig ? 'bonus6000' : 'bonus3000']++;
+  game.pending = { isBig };
+  addLog(`${isBig ? '6000個' : '3000個'}！ ＋${isBig ? 5400 : 2800}球 (${rushState.chainCount}連)`, 'rush');
+  setState('rush_hit_result');
+  return true;
+}
+
+function handleRushSpin() {
+  runRushSpin();
+}
+
+function handleRushSpin10() {
+  for (let i = 0; i < 10; i++) {
+    if (runRushSpin({ silent: true })) return;
+  }
+  setState('rush_idle');
+}
+
+function handleRushSkip() {
+  for (;;) {
+    if (runRushSpin({ silent: true })) return;
+  }
+}
+
+function handleRushHitContinue() {
+  setState('rush_idle');
+}
+
+function handleRushMissContinue() {
+  setState('rush_idle');
+}
+
+function handleRushResultEnd() {
+  addLog('RUSH終了 → 通常時へ');
+  game.mode = 'normal';
+  game.rush = null;
+  setState('normal_idle');
+}
+
 // ---- 営業終了・退店 ----
 
 function handleEigyoHai() {
