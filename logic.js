@@ -30,6 +30,17 @@ function rollZugarLtChallenge() {
   return Math.random() < P_ZUGAR_LT;
 }
 
+const P_RUSH     = 1 / 95.3;
+const P_RUSH_BIG = 0.03;
+
+function spinRush() {
+  return Math.random() < P_RUSH ? 'hit' : 'miss';
+}
+
+function rollRushHitType() {
+  return Math.random() < P_RUSH_BIG ? 'big' : 'small';
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     SPIN_RATE_OPTIONS,
@@ -43,5 +54,9 @@ if (typeof module !== 'undefined' && module.exports) {
     spinNormal,
     rollChargeLt,
     rollZugarLtChallenge,
+    P_RUSH,
+    P_RUSH_BIG,
+    spinRush,
+    rollRushHitType,
   };
 }

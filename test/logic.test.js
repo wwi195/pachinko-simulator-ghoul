@@ -63,3 +63,18 @@ test('rollZugarLtChallenge is true only under P_ZUGAR_LT (50%)', () => {
   assert.equal(withMockRandom([0], () => logic.rollZugarLtChallenge()), true);
   assert.equal(withMockRandom([0.6], () => logic.rollZugarLtChallenge()), false);
 });
+
+test('P_RUSH is 1/95.3 and P_RUSH_BIG is 3%', () => {
+  assert.equal(logic.P_RUSH, 1 / 95.3);
+  assert.equal(logic.P_RUSH_BIG, 0.03);
+});
+
+test('spinRush returns hit when the draw beats P_RUSH, miss otherwise', () => {
+  assert.equal(withMockRandom([0], () => logic.spinRush()), 'hit');
+  assert.equal(withMockRandom([0.5], () => logic.spinRush()), 'miss');
+});
+
+test('rollRushHitType returns big under P_RUSH_BIG (3%), small otherwise', () => {
+  assert.equal(withMockRandom([0], () => logic.rollRushHitType()), 'big');
+  assert.equal(withMockRandom([0.5], () => logic.rollRushHitType()), 'small');
+});
