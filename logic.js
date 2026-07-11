@@ -41,6 +41,46 @@ function rollRushHitType() {
   return Math.random() < P_RUSH_BIG ? 'big' : 'small';
 }
 
+const RUSH_ST_COUNT = 130;
+
+function createRushState() {
+  return {
+    stRemaining: RUSH_ST_COUNT,
+    chainCount: 0,
+    bonus3000: 0,
+    bonus6000: 0,
+    actualBalls: 0,
+    nominalBalls: 0,
+  };
+}
+
+function applyRushSpin(rushState) {
+  const result = spinRush();
+  const stRemaining = rushState.stRemaining - 1;
+
+  if (result === 'miss') {
+    if (stRemaining <= 0) {
+      return { rushState: { ...rushState, stRemaining: 0 }, outcome: 'st_end' };
+    }
+    return { rushState: { ...rushState, stRemaining }, outcome: 'miss' };
+  }
+
+  const isBig    = rollRushHitType() === 'big';
+  const balls    = isBig ? 5400 : 2800;
+  const nominal  = isBig ? 6000 : 3000;
+
+  const newState = {
+    stRemaining:  RUSH_ST_COUNT,
+    chainCount:   rushState.chainCount + 1,
+    bonus3000:    rushState.bonus3000 + (isBig ? 0 : 1),
+    bonus6000:    rushState.bonus6000 + (isBig ? 1 : 0),
+    actualBalls:  rushState.actualBalls  + balls,
+    nominalBalls: rushState.nominalBalls + nominal,
+  };
+
+  return { rushState: newState, outcome: isBig ? 'hit_big' : 'hit_small' };
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     SPIN_RATE_OPTIONS,
@@ -58,5 +98,8 @@ if (typeof module !== 'undefined' && module.exports) {
     P_RUSH_BIG,
     spinRush,
     rollRushHitType,
+    RUSH_ST_COUNT,
+    createRushState,
+    applyRushSpin,
   };
 }

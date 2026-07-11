@@ -78,3 +78,63 @@ test('rollRushHitType returns big under P_RUSH_BIG (3%), small otherwise', () =>
   assert.equal(withMockRandom([0], () => logic.rollRushHitType()), 'big');
   assert.equal(withMockRandom([0.5], () => logic.rollRushHitType()), 'small');
 });
+
+test('createRushState starts with 130 ST and zeroed counters', () => {
+  assert.deepEqual(logic.createRushState(), {
+    stRemaining: 130,
+    chainCount: 0,
+    bonus3000: 0,
+    bonus6000: 0,
+    actualBalls: 0,
+    nominalBalls: 0,
+  });
+});
+
+test('applyRushSpin: a miss with ST remaining decrements stRemaining and reports miss', () => {
+  const state = logic.createRushState();
+  const { rushState, outcome } = withMockRandom([0.5], () => logic.applyRushSpin(state));
+  assert.equal(outcome, 'miss');
+  assert.equal(rushState.stRemaining, 129);
+});
+
+test('applyRushSpin: a miss on the last ST spin reports st_end', () => {
+  const state = { ...logic.createRushState(), stRemaining: 1 };
+  const { rushState, outcome } = withMockRandom([0.5], () => logic.applyRushSpin(state));
+  assert.equal(outcome, 'st_end');
+  assert.equal(rushState.stRemaining, 0);
+});
+
+test('applyRushSpin: a small hit resets ST to 130, adds 2800 actual / 3000 nominal balls', () => {
+  const state = logic.createRushState();
+  const { rushState, outcome } = withMockRandom([0, 0.5], () => logic.applyRushSpin(state));
+  assert.equal(outcome, 'hit_small');
+  assert.equal(rushState.stRemaining, 130);
+  assert.equal(rushState.chainCount, 1);
+  assert.equal(rushState.bonus3000, 1);
+  assert.equal(rushState.bonus6000, 0);
+  assert.equal(rushState.actualBalls, 2800);
+  assert.equal(rushState.nominalBalls, 3000);
+});
+
+test('applyRushSpin: a big hit resets ST to 130, adds 5400 actual / 6000 nominal balls', () => {
+  const state = logic.createRushState();
+  const { rushState, outcome } = withMockRandom([0, 0], () => logic.applyRushSpin(state));
+  assert.equal(outcome, 'hit_big');
+  assert.equal(rushState.stRemaining, 130);
+  assert.equal(rushState.chainCount, 1);
+  assert.equal(rushState.bonus3000, 0);
+  assert.equal(rushState.bonus6000, 1);
+  assert.equal(rushState.actualBalls, 5400);
+  assert.equal(rushState.nominalBalls, 6000);
+});
+
+test('applyRushSpin: hits accumulate chainCount and balls across repeated calls', () => {
+  let state = logic.createRushState();
+  ({ rushState: state } = withMockRandom([0, 0.5], () => logic.applyRushSpin(state))); // small hit
+  ({ rushState: state } = withMockRandom([0, 0], () => logic.applyRushSpin(state)));    // big hit
+  assert.equal(state.chainCount, 2);
+  assert.equal(state.bonus3000, 1);
+  assert.equal(state.bonus6000, 1);
+  assert.equal(state.actualBalls, 2800 + 5400);
+  assert.equal(state.nominalBalls, 3000 + 6000);
+});
