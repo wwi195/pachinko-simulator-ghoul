@@ -13,6 +13,8 @@ const P_FALSE_ENZOKU = P_ZUGAR * (0.3 / 0.7);
 const P_CHARGE_LT    = 1 / 100;
 const P_ZUGAR_LT     = 0.5;
 
+// Each outcome is an independent roll (not cumulative buckets on one draw),
+// matching pachinko-simulator-ghouldeka's existing convention.
 function spinNormal() {
   if (Math.random() < P_ZUGAR)        return 'zugar';
   if (Math.random() < P_FALSE_ENZOKU) return 'false_enzoku';
