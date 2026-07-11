@@ -88,7 +88,9 @@ function runNormalSpin() {
 
 function handleStart() {
   if (checkEigyoAlert()) return;
-  runNormalSpin();
+  if (!runNormalSpin()) {
+    setState('lose_result');
+  }
 }
 
 function autoSpin(count) {
