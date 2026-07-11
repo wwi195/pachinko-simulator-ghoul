@@ -13,3 +13,53 @@ test('calcSpinCost returns balls-per-spin for a given spins-per-1000-yen rate', 
   assert.equal(logic.calcSpinCost(14), 250 / 14);
   assert.equal(logic.calcSpinCost(18), 250 / 18);
 });
+
+function withMockRandom(values, fn) {
+  const original = Math.random;
+  let i = 0;
+  Math.random = () => values[Math.min(i++, values.length - 1)];
+  try {
+    return fn();
+  } finally {
+    Math.random = original;
+  }
+}
+
+test('P_ZUGAR and P_CHARGE are both 1/399.9', () => {
+  assert.equal(logic.P_ZUGAR, 1 / 399.9);
+  assert.equal(logic.P_CHARGE, 1 / 399.9);
+});
+
+test('P_FALSE_ENZOKU keeps the 70% confidence ratio against the new P_ZUGAR', () => {
+  assert.equal(logic.P_FALSE_ENZOKU, logic.P_ZUGAR * (0.3 / 0.7));
+});
+
+test('spinNormal returns zugar when the first random draw beats P_ZUGAR', () => {
+  const result = withMockRandom([0], () => logic.spinNormal());
+  assert.equal(result, 'zugar');
+});
+
+test('spinNormal returns false_enzoku when only the second draw beats P_FALSE_ENZOKU', () => {
+  const result = withMockRandom([0.999, 0], () => logic.spinNormal());
+  assert.equal(result, 'false_enzoku');
+});
+
+test('spinNormal returns charge when only the third draw beats P_CHARGE', () => {
+  const result = withMockRandom([0.999, 0.999, 0], () => logic.spinNormal());
+  assert.equal(result, 'charge');
+});
+
+test('spinNormal returns miss when every draw is at the high end', () => {
+  const result = withMockRandom([0.999, 0.999, 0.999], () => logic.spinNormal());
+  assert.equal(result, 'miss');
+});
+
+test('rollChargeLt is true only under P_CHARGE_LT (1/100)', () => {
+  assert.equal(withMockRandom([0], () => logic.rollChargeLt()), true);
+  assert.equal(withMockRandom([0.02], () => logic.rollChargeLt()), false);
+});
+
+test('rollZugarLtChallenge is true only under P_ZUGAR_LT (50%)', () => {
+  assert.equal(withMockRandom([0], () => logic.rollZugarLtChallenge()), true);
+  assert.equal(withMockRandom([0.6], () => logic.rollZugarLtChallenge()), false);
+});
