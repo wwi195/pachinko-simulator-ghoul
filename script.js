@@ -262,3 +262,337 @@ function resetGame() {
   game.log             = [];
   render();
 }
+
+// ---- 状態セット & レンダリング ----
+
+function setState(state) {
+  game.state = state;
+  render();
+}
+
+function render() {
+  renderHeader();
+  renderModeBadge();
+  renderMainScreen();
+  renderRushStats();
+}
+
+function renderHeader() {
+  const mochiInt = Math.floor(game.mochiDama);
+  document.getElementById('mochi-dama').textContent   = mochiInt.toLocaleString();
+  document.getElementById('toushi-value').textContent = game.toushi.toLocaleString();
+
+  const shuushi   = mochiInt * 4 - game.toushi;
+  const shuushiEl = document.getElementById('shuushi-value');
+  shuushiEl.textContent = (shuushi >= 0 ? '+' : '') + shuushi.toLocaleString();
+  shuushiEl.className   = 'money-value ' + (shuushi >= 0 ? 'green' : 'red');
+  document.getElementById('current-spins').textContent = game.currentSpins.toLocaleString();
+  document.getElementById('total-spins-disp').textContent = game.totalSpins.toLocaleString();
+
+  const rushCountEl = document.getElementById('rush-count');
+  rushCountEl.textContent = game.mode === 'rush' ? `${game.rush.stRemaining}回` : '－';
+
+  document.getElementById('zugar-count').textContent  = game.zugarCount + '回';
+  document.getElementById('charge-count').textContent = game.chargeCount + '回';
+
+  const zugarProb = game.zugarCount > 0 && game.totalSpins > 0
+    ? '1/' + Math.round(game.totalSpins / game.zugarCount).toLocaleString()
+    : '1/399';
+  const chargeProb = game.chargeCount > 0 && game.totalSpins > 0
+    ? '1/' + Math.round(game.totalSpins / game.chargeCount).toLocaleString()
+    : '1/399';
+  document.getElementById('zugar-prob').textContent  = zugarProb;
+  document.getElementById('charge-prob').textContent = chargeProb;
+
+  document.getElementById('rush-entry-info').textContent = `(LT突入${game.ltEntryCount}回)`;
+
+  const normalHits = game.zugarCount + game.chargeCount;
+  const grandTotal = normalHits + game.totalRushHits;
+  document.getElementById('total-hit-count').textContent = grandTotal + '回';
+
+  document.getElementById('normal-first-hit').textContent  = normalHits + '回';
+  document.getElementById('normal-first-prob').textContent = normalHits > 0 && game.totalSpins > 0
+    ? '1/' + Math.round(game.totalSpins / normalHits).toLocaleString()
+    : '1/―';
+
+  document.getElementById('fee-block').textContent = `${game.spinRate}回転/千円`;
+}
+
+function renderModeBadge() {
+  const el = document.getElementById('mode-badge');
+  if (game.mode === 'rush') {
+    el.textContent = 'RUSH中';
+    el.className = 'rush';
+  } else {
+    el.textContent = '通常時';
+    el.className = '';
+  }
+}
+
+function renderMainScreen() {
+  document.getElementById('main-screen').innerHTML = buildScreen(game.state);
+}
+
+function spinRateOptionsHtml() {
+  return SPIN_RATE_OPTIONS.map(rate =>
+    `<option value="${rate}" ${rate === game.spinRate ? 'selected' : ''}>${rate}回転</option>`
+  ).join('');
+}
+
+function autoSpinCostHint(count) {
+  const yen = Math.round((count * calcSpinCost(game.spinRate) / 250) * 1000);
+  return `約${yen.toLocaleString()}円消費`;
+}
+
+function buildScreen(state) {
+  switch (state) {
+
+    case 'normal_idle':
+      return `<div class="screen">
+        <button class="btn-start" onclick="handleStart()">START</button>
+        <p class="prob-hint">図柄ぞろい 1/399.9　チャージ 1/399.9</p>
+        <div class="spin-rate-block">
+          <span class="spin-rate-label">1000円あたりの回転数</span>
+          <select class="spin-rate-select" onchange="handleSpinRateChange(this.value)">
+            ${spinRateOptionsHtml()}
+          </select>
+        </div>
+        <div class="auto-spin-btns">
+          <div class="auto-spin-wrap">
+            <button class="btn-auto" onclick="autoSpin(100)">100回転</button>
+            <p class="spin-cost-hint">${autoSpinCostHint(100)}</p>
+          </div>
+          <div class="auto-spin-wrap">
+            <button class="btn-auto" onclick="autoSpin(300)">300回転</button>
+            <p class="spin-cost-hint">${autoSpinCostHint(300)}</p>
+          </div>
+        </div>
+        <button class="btn-taiten" onclick="handleTaiten()">退店する</button>
+      </div>`;
+
+    case 'enzoku':
+      return `<div class="screen">
+        <p class="enzoku-label">先バレ発生！</p>
+        <img src="画像/グール先バレ.webp" class="enzoku-img" alt="先バレ演出">
+        <p class="shinraiudo">信頼度 70%</p>
+        <button class="btn-action" onclick="handleEnzokuJudge()">▶ 判定に進む</button>
+      </div>`;
+
+    case 'win_result':
+      return `<div class="screen">
+        <p class="result-main win">図柄ぞろい！</p>
+        <p style="font-size:56px; margin:4px 0;">🎰</p>
+        <button class="btn-action" onclick="handleZugarVibun()">▶ 振り分けへ</button>
+      </div>`;
+
+    case 'lose_result':
+      return `<div class="screen">
+        <p class="result-main lose">はずれ</p>
+        <button class="btn-sub" onclick="backToNormal()" style="margin-top:8px;">続ける</button>
+      </div>`;
+
+    case 'charge_result':
+      return `<div class="screen">
+        <p class="result-main charge">チャージ！</p>
+        <p class="result-balls">＋280球</p>
+        <button class="btn-sub" onclick="handleChargeContinue()">続ける</button>
+      </div>`;
+
+    case 'charge_lt_announce':
+      return `<div class="screen">
+        <p class="add-rush-title">LT当選！</p>
+        <img src="画像/RUSH中　追加ボーナス演出.png" class="enzoku-img" alt="LT当選演出"
+          onerror="this.style.display='none'">
+        <button class="btn-action" onclick="handleAfterChargeLt()">▶ RUSHへ</button>
+      </div>`;
+
+    case 'zugar_result':
+      return `<div class="screen">
+        <div class="vibun-box normal-box">
+          <p class="bonus-main standard">1500大当たり</p>
+          <p class="bonus-sub">＋1,400球獲得</p>
+        </div>
+        <button class="btn-action" onclick="handleZugarLtChallenge()">▶ 次へ</button>
+      </div>`;
+
+    case 'zugar_lt_challenge':
+      return `<div class="screen">
+        <p class="add-rush-title">LTチャレンジ！</p>
+        <p class="result-sub">継続率 50%</p>
+        <button class="btn-action" onclick="handleZugarLtJudge()">▶ 判定</button>
+      </div>`;
+
+    case 'zugar_lt_win':
+      return `<div class="screen">
+        <p class="add-rush-title">LT突入！</p>
+        <img src="画像/RUSH中　追加ボーナス演出.png" class="enzoku-img" alt="LT突入演出"
+          onerror="this.style.display='none'">
+        <button class="btn-action" onclick="handleAfterZugarLt()">▶ RUSHへ</button>
+      </div>`;
+
+    case 'zugar_lt_lose':
+      return `<div class="screen">
+        <p class="result-main lose" style="font-size:28px;">LTならず…</p>
+        <button class="btn-sub" onclick="handleAfterZugarLt()" style="margin-top:12px;">続ける</button>
+      </div>`;
+
+    case 'rush_idle':
+      return `<div class="screen">
+        <p class="chain-label">${game.rush.chainCount}連チャン中</p>
+        <p class="rush-title">RUSH</p>
+        <p class="rush-sub">ST残り <span>${game.rush.stRemaining}</span> 回</p>
+        <div class="rush-spin-btns">
+          <button class="btn-rush-spin" onclick="handleRushSpin()">1回転</button>
+          <button class="btn-rush-spin" onclick="handleRushSpin10()">10回転</button>
+          <button class="btn-rush-spin skip" onclick="handleRushSkip()">スキップ</button>
+        </div>
+        <p class="prob-hint">大当たり確率 1/95.3</p>
+        <button class="btn-taiten" onclick="handleTaiten()">退店する</button>
+      </div>`;
+
+    case 'rush_hit_result': {
+      const isBig = game.pending.isBig;
+      return `<div class="screen">
+        <div class="vibun-box rush-box">
+          <p class="bonus-main ${isBig ? 'premium' : 'standard'}">${isBig ? '6000個' : '3000個'}</p>
+          <p class="bonus-sub">＋${isBig ? '5,400' : '2,800'}球獲得</p>
+        </div>
+        <button class="btn-action" onclick="handleRushHitContinue()" style="margin-top:16px;">
+          ▶ RUSH継続へ
+        </button>
+      </div>`;
+    }
+
+    case 'rush_miss':
+      return `<div class="screen">
+        <p class="result-main lose">外れ</p>
+        <p style="color:#ff9900; font-size:18px; margin-top:4px;">ST残り ${game.rush.stRemaining}回</p>
+        <button class="btn-sub" onclick="handleRushMissContinue()" style="margin-top:12px;">続ける</button>
+      </div>`;
+
+    case 'rush_result': {
+      const s = game.rush;
+      const lines = [];
+      if (s.bonus6000 > 0) {
+        lines.push(`<div class="result-row">
+          <span class="rr-label">6000個</span>
+          <span class="rr-val">×${s.bonus6000}回</span>
+        </div>`);
+      }
+      if (s.bonus3000 > 0) {
+        lines.push(`<div class="result-row">
+          <span class="rr-label">3000個</span>
+          <span class="rr-val">×${s.bonus3000}回</span>
+        </div>`);
+      }
+      if (lines.length === 0) lines.push(`<p style="color:#555; font-size:13px;">大当たりなし</p>`);
+      return `<div class="screen">
+        <p class="rush-result-title">RUSH リザルト</p>
+        <div class="rush-result-box">
+          <div class="result-row highlight">
+            <span class="rr-label">連チャン数</span>
+            <span class="rr-val gold">${s.chainCount}連チャン</span>
+          </div>
+          <div class="result-row">
+            <span class="rr-label">獲得出玉</span>
+            <span class="rr-val gold">${s.actualBalls.toLocaleString()}球</span>
+          </div>
+          <div class="result-row">
+            <span class="rr-label">表示出玉</span>
+            <span class="rr-val">${s.nominalBalls.toLocaleString()}個</span>
+          </div>
+          <hr class="result-hr">
+          <p class="rr-section">ボーナス内訳</p>
+          ${lines.join('')}
+        </div>
+        <button class="btn-action" onclick="handleRushResultEnd()" style="margin-top:16px;">▶ 通常へ戻る</button>
+      </div>`;
+    }
+
+    case 'eigyo_alert':
+      return `<div class="screen">
+        <p style="font-size:22px; font-weight:bold; color:#f0c040; text-align:center; line-height:1.6;">
+          営業時間終了になりました
+        </p>
+        <p style="font-size:16px; color:#ccc; text-align:center;">このまま居座り続けますか？</p>
+        <div style="display:flex; gap:16px; margin-top:8px;">
+          <button class="btn-action" style="flex:1;" onclick="handleEigyoHai()">はい</button>
+          <button class="btn-action" style="flex:1; background:linear-gradient(135deg,#555,#333); border-color:#888;"
+            onclick="handleEigyoIie()">いいえ</button>
+        </div>
+      </div>`;
+
+    case 'taiten_result': {
+      const mochi    = Math.floor(game.mochiDama);
+      const mochiYen = mochi * 4;
+      const shuushi  = mochiYen - game.toushi;
+      const shuushiColor = shuushi >= 0 ? '#44cc88' : '#cc6666';
+      const shuushiSign  = shuushi >= 0 ? '＋' : '';
+      return `<div class="screen">
+        <p style="font-size:24px; font-weight:bold; color:#aaa;">退店します</p>
+        <div class="rush-result-box" style="max-width:320px;">
+          <p class="rr-section" style="margin-bottom:8px;">収支発表</p>
+          <div class="result-row">
+            <span class="rr-label">総回転数</span>
+            <span class="rr-val">${game.totalSpins.toLocaleString()}回</span>
+          </div>
+          <div class="result-row">
+            <span class="rr-label">投資金額</span>
+            <span class="rr-val" style="color:#cc6666;">${game.toushi.toLocaleString()}円</span>
+          </div>
+          <div class="result-row">
+            <span class="rr-label">持ち球換算</span>
+            <span class="rr-val">${mochiYen.toLocaleString()}円</span>
+          </div>
+          <hr class="result-hr">
+          <div class="result-row highlight">
+            <span class="rr-label" style="font-weight:bold;">収支</span>
+            <span class="rr-val" style="color:${shuushiColor}; font-size:22px;">
+              ${shuushiSign}${shuushi.toLocaleString()}円
+            </span>
+          </div>
+          <hr class="result-hr">
+          <div class="result-row">
+            <span class="rr-label">図柄ぞろい</span>
+            <span class="rr-val">${game.zugarCount}回</span>
+          </div>
+          <div class="result-row">
+            <span class="rr-label">チャージ</span>
+            <span class="rr-val">${game.chargeCount}回</span>
+          </div>
+          <div class="result-row">
+            <span class="rr-label">RUSH大当たり</span>
+            <span class="rr-val">${game.totalRushHits}回</span>
+          </div>
+        </div>
+        <button class="btn-action" onclick="resetGame()" style="margin-top:8px;">▶ 最初の画面に戻る</button>
+      </div>`;
+    }
+
+    default:
+      return `<div class="screen"><p>...</p></div>`;
+  }
+}
+
+function renderRushStats() {
+  const a     = game.allRushStats;
+  const hits  = game.totalRushHits;
+  const spins = a.rushTotalSpins;
+  const prob  = hits > 0 && spins > 0
+    ? '1/' + (spins / hits).toFixed(1)
+    : '1/―';
+  document.getElementById('rs-chain').textContent = hits + '回';
+  document.getElementById('rs-prob').textContent  = prob;
+  document.getElementById('rs-spins').textContent = spins + '回';
+  document.getElementById('rs-6000').textContent  = a.bonus6000 + '回';
+  document.getElementById('rs-3000').textContent  = a.bonus3000 + '回';
+}
+
+function renderLog() {
+  const el = document.getElementById('log-list');
+  el.innerHTML = game.log.map(item =>
+    `<div class="log-item ${item.type}">${item.text}</div>`
+  ).join('');
+}
+
+render();
