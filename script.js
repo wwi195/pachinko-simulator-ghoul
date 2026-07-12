@@ -17,6 +17,7 @@ const game = {
   allRushStats: { rushTotalSpins: 0, bonus6000: 0, bonus3000: 0 },
   rush: null,
   rushCycleSpins: 0,
+  rushEntryBonus: null,
   pending: {},
   eigyoAlertShown: false,
   log: [],
@@ -133,7 +134,7 @@ function handleZugarLtChallenge() {
 
 function handleZugarLtJudge() {
   if (rollZugarLtChallenge()) {
-    enterRush();
+    enterRush({ label: '初当たり', nominal: 1500, actual: 1400 });
     addLog('LTチャレンジ成功！ → RUSH突入', 'rush');
     setState('zugar_lt_win');
   } else {
@@ -168,11 +169,12 @@ function backToNormal() {
   setState('normal_idle');
 }
 
-function enterRush() {
+function enterRush(entryBonus = null) {
   game.mode = 'rush';
   game.ltEntryCount++;
   game.rush = createRushState();
   game.rushCycleSpins = 0;
+  game.rushEntryBonus = entryBonus;
 }
 
 // ---- RUSH(ST)中ハンドラ ----
@@ -245,6 +247,7 @@ function handleRushResultEnd() {
   game.mode = 'normal';
   game.rush = null;
   game.rushCycleSpins = 0;
+  game.rushEntryBonus = null;
   setState('normal_idle');
 }
 
@@ -279,6 +282,7 @@ function resetGame() {
   game.allRushStats    = { rushTotalSpins: 0, bonus6000: 0, bonus3000: 0 };
   game.rush            = null;
   game.rushCycleSpins  = 0;
+  game.rushEntryBonus  = null;
   game.pending         = {};
   game.eigyoAlertShown = false;
   game.log             = [];
@@ -520,7 +524,14 @@ function buildScreen(state) {
 
     case 'rush_result': {
       const s = game.rush;
+      const bonus = game.rushEntryBonus;
       const lines = [];
+      if (bonus) {
+        lines.push(`<div class="result-row">
+          <span class="rr-label">初当たり${bonus.nominal}</span>
+          <span class="rr-val">×1回</span>
+        </div>`);
+      }
       if (s.bonus6000 > 0) {
         lines.push(`<div class="result-row">
           <span class="rr-label">6000個</span>
@@ -534,6 +545,10 @@ function buildScreen(state) {
         </div>`);
       }
       if (lines.length === 0) lines.push(`<p style="color:#555; font-size:13px;">大当たりなし</p>`);
+
+      const totalActual  = s.actualBalls  + (bonus ? bonus.actual  : 0);
+      const totalNominal = s.nominalBalls + (bonus ? bonus.nominal : 0);
+
       return `<div class="screen">
         <p class="rush-result-title">RUSH リザルト</p>
         <div class="rush-result-box">
@@ -543,11 +558,11 @@ function buildScreen(state) {
           </div>
           <div class="result-row">
             <span class="rr-label">獲得出玉</span>
-            <span class="rr-val gold">${s.actualBalls.toLocaleString()}球</span>
+            <span class="rr-val gold">${totalActual.toLocaleString()}球</span>
           </div>
           <div class="result-row">
             <span class="rr-label">表示出玉</span>
-            <span class="rr-val">${s.nominalBalls.toLocaleString()}個</span>
+            <span class="rr-val">${totalNominal.toLocaleString()}個</span>
           </div>
           <hr class="result-hr">
           <p class="rr-section">ボーナス内訳</p>
