@@ -4,6 +4,7 @@ const game = {
   state: 'normal_idle',
   mode: 'normal',
   spinRate: DEFAULT_SPIN_RATE,
+  enzokuConfidence: DEFAULT_ENZOKU_CONFIDENCE,
   mochiDama: 0,
   toushi: 0,
   totalSpins: 0,
@@ -15,6 +16,7 @@ const game = {
   totalRushHits: 0,
   allRushStats: { rushTotalSpins: 0, bonus6000: 0, bonus3000: 0 },
   rush: null,
+  rushCycleSpins: 0,
   pending: {},
   eigyoAlertShown: false,
   log: [],
@@ -50,10 +52,15 @@ function handleSpinRateChange(value) {
   render();
 }
 
+function handleEnzokuConfidenceChange(value) {
+  game.enzokuConfidence = Number(value);
+  render();
+}
+
 // ---- 通常時ハンドラ ----
 
 function checkEigyoAlert() {
-  if (!game.eigyoAlertShown && game.totalSpins >= 4000) {
+  if (!game.eigyoAlertShown && game.totalSpins >= 2000) {
     game.eigyoAlertShown = true;
     setState('eigyo_alert');
     return true;
@@ -66,11 +73,11 @@ function runNormalSpin() {
   game.totalSpins++;
   game.currentSpins++;
   consumeSpinCost();
-  const result = spinNormal();
+  const result = spinNormal(game.enzokuConfidence);
   const interval = game.totalSpins - game.lastHitSpins;
 
   if (result === 'zugar' || result === 'false_enzoku') {
-    game.pending = { type: result === 'zugar' ? 'zugar' : 'false' };
+    game.pending = { type: result === 'zugar' ? 'zugar' : 'false', interval };
     addLog(`${interval}回転で先バレ発生！`);
     setState('enzoku');
     return true;
@@ -78,7 +85,7 @@ function runNormalSpin() {
   if (result === 'charge') {
     game.chargeCount++;
     addBalls(280);
-    game.pending = { chargeLt: rollChargeLt() };
+    game.pending = { chargeLt: rollChargeLt(), interval };
     addLog(`${interval}回転でチャージ ＋280球`, 'charge');
     setState('charge_result');
     return true;
@@ -141,8 +148,11 @@ function handleAfterZugarLt() {
 
 function handleChargeContinue() {
   if (game.pending.chargeLt) {
-    addLog('LT当選！', 'rush');
-    setState('charge_lt_announce');
+    setState('charge_lt_pending');
+    setTimeout(() => {
+      addLog('LT当選！', 'rush');
+      setState('charge_lt_announce');
+    }, 1000);
   } else {
     backToNormal();
   }
@@ -162,6 +172,7 @@ function enterRush() {
   game.mode = 'rush';
   game.ltEntryCount++;
   game.rush = createRushState();
+  game.rushCycleSpins = 0;
 }
 
 // ---- RUSH(ST)中ハンドラ ----
@@ -169,6 +180,7 @@ function enterRush() {
 // 1回転処理。画面遷移が起きたら true を返す
 function runRushSpin(opts = {}) {
   game.allRushStats.rushTotalSpins++;
+  game.rushCycleSpins++;
   const { rushState, outcome } = applyRushSpin(game.rush);
   game.rush = rushState;
 
@@ -188,10 +200,13 @@ function runRushSpin(opts = {}) {
   }
 
   const isBig = outcome === 'hit_big';
+  const balls = isBig ? 5600 : 2800;
   game.totalRushHits++;
   game.allRushStats[isBig ? 'bonus6000' : 'bonus3000']++;
-  game.pending = { isBig };
-  addLog(`${isBig ? '6000個' : '3000個'}！ ＋${isBig ? 5400 : 2800}球 (${rushState.chainCount}連)`, 'rush');
+  addBalls(balls);
+  game.pending = { isBig, spinsThisCycle: game.rushCycleSpins };
+  game.rushCycleSpins = 0;
+  addLog(`${isBig ? '6000個' : '3000個'}！ ＋${balls}球 (${rushState.chainCount}連)`, 'rush');
   setState('rush_hit_result');
   return true;
 }
@@ -225,6 +240,7 @@ function handleRushResultEnd() {
   addLog('RUSH終了 → 通常時へ');
   game.mode = 'normal';
   game.rush = null;
+  game.rushCycleSpins = 0;
   setState('normal_idle');
 }
 
@@ -246,6 +262,7 @@ function resetGame() {
   game.state           = 'normal_idle';
   game.mode            = 'normal';
   game.spinRate        = DEFAULT_SPIN_RATE;
+  game.enzokuConfidence = DEFAULT_ENZOKU_CONFIDENCE;
   game.mochiDama       = 0;
   game.toushi          = 0;
   game.totalSpins      = 0;
@@ -257,6 +274,7 @@ function resetGame() {
   game.totalRushHits   = 0;
   game.allRushStats    = { rushTotalSpins: 0, bonus6000: 0, bonus3000: 0 };
   game.rush            = null;
+  game.rushCycleSpins  = 0;
   game.pending         = {};
   game.eigyoAlertShown = false;
   game.log             = [];
@@ -339,42 +357,63 @@ function spinRateOptionsHtml() {
   ).join('');
 }
 
-function autoSpinCostHint(count) {
-  const yen = Math.round((count * calcSpinCost(game.spinRate) / 250) * 1000);
-  return `約${yen.toLocaleString()}円消費`;
+function enzokuConfidenceOptionsHtml() {
+  return ENZOKU_CONFIDENCE_OPTIONS.map(pct =>
+    `<option value="${pct}" ${pct === game.enzokuConfidence ? 'selected' : ''}>${pct}%</option>`
+  ).join('');
+}
+
+function tenThousandYenSpins() {
+  return game.spinRate * 10;
+}
+
+// interactive=false は喰種CHARGE→LT昇格の1秒サスペンス演出中に使う、
+// 見た目は通常時画面のままボタン操作だけを無効化した画面
+function buildNormalIdleScreen(interactive) {
+  const startAttr  = interactive ? ' onclick="handleStart()"' : '';
+  const confAttr   = interactive ? ' onchange="handleEnzokuConfidenceChange(this.value)"' : '';
+  const rateAttr   = interactive ? ' onchange="handleSpinRateChange(this.value)"' : '';
+  const spinAttr   = interactive ? ` onclick="autoSpin(${tenThousandYenSpins()})"` : '';
+  const taitenAttr = interactive ? ' onclick="handleTaiten()"' : '';
+  return `<div class="screen">
+    <button class="btn-start"${startAttr}>START</button>
+    <p class="prob-hint">図柄ぞろい 1/399.9　チャージ 1/399.9</p>
+    <div class="spin-rate-block">
+      <span class="spin-rate-label">先バレ確率</span>
+      <select class="spin-rate-select"${confAttr}>
+        ${enzokuConfidenceOptionsHtml()}
+      </select>
+    </div>
+    <div class="spin-rate-block">
+      <span class="spin-rate-label">1000円あたりの回転数</span>
+      <select class="spin-rate-select"${rateAttr}>
+        ${spinRateOptionsHtml()}
+      </select>
+    </div>
+    <div class="auto-spin-btns">
+      <div class="auto-spin-wrap">
+        <button class="btn-auto"${spinAttr}>1万円分回す</button>
+        <p class="spin-cost-hint">約${tenThousandYenSpins()}回転分</p>
+      </div>
+    </div>
+    <button class="btn-taiten"${taitenAttr}>退店する</button>
+  </div>`;
 }
 
 function buildScreen(state) {
   switch (state) {
 
     case 'normal_idle':
-      return `<div class="screen">
-        <button class="btn-start" onclick="handleStart()">START</button>
-        <p class="prob-hint">図柄ぞろい 1/399.9　チャージ 1/399.9</p>
-        <div class="spin-rate-block">
-          <span class="spin-rate-label">1000円あたりの回転数</span>
-          <select class="spin-rate-select" onchange="handleSpinRateChange(this.value)">
-            ${spinRateOptionsHtml()}
-          </select>
-        </div>
-        <div class="auto-spin-btns">
-          <div class="auto-spin-wrap">
-            <button class="btn-auto" onclick="autoSpin(100)">100回転</button>
-            <p class="spin-cost-hint">${autoSpinCostHint(100)}</p>
-          </div>
-          <div class="auto-spin-wrap">
-            <button class="btn-auto" onclick="autoSpin(300)">300回転</button>
-            <p class="spin-cost-hint">${autoSpinCostHint(300)}</p>
-          </div>
-        </div>
-        <button class="btn-taiten" onclick="handleTaiten()">退店する</button>
-      </div>`;
+      return buildNormalIdleScreen(true);
+
+    case 'charge_lt_pending':
+      return buildNormalIdleScreen(false);
 
     case 'enzoku':
       return `<div class="screen">
-        <p class="enzoku-label">先バレ発生！</p>
+        <p class="enzoku-label">${game.pending.interval}回転　先バレ発生！</p>
         <img src="画像/グール先バレ.webp" class="enzoku-img" alt="先バレ演出">
-        <p class="shinraiudo">信頼度 70%</p>
+        <p class="shinraiudo">信頼度 ${game.enzokuConfidence}%</p>
         <button class="btn-action" onclick="handleEnzokuJudge()">▶ 判定に進む</button>
       </div>`;
 
@@ -393,7 +432,8 @@ function buildScreen(state) {
 
     case 'charge_result':
       return `<div class="screen">
-        <p class="result-main charge">チャージ！</p>
+        <p class="result-sub">${game.pending.interval}回転</p>
+        <p class="result-main charge"><span style="color:#ff4444;">喰</span><span style="color:#ccc;">種CHARGE</span></p>
         <p class="result-balls">＋280球</p>
         <button class="btn-sub" onclick="handleChargeContinue()">続ける</button>
       </div>`;
@@ -412,13 +452,13 @@ function buildScreen(state) {
           <p class="bonus-main standard">1500大当たり</p>
           <p class="bonus-sub">＋1,400球獲得</p>
         </div>
-        <button class="btn-action" onclick="handleZugarLtChallenge()">▶ 次へ</button>
+        <button class="btn-action" onclick="handleZugarLtChallenge()">▶ LTチャレンジ</button>
       </div>`;
 
     case 'zugar_lt_challenge':
       return `<div class="screen">
         <p class="add-rush-title">LTチャレンジ！</p>
-        <p class="result-sub">継続率 50%</p>
+        <p class="result-sub">成功率 50%</p>
         <button class="btn-action" onclick="handleZugarLtJudge()">▶ 判定</button>
       </div>`;
 
@@ -453,9 +493,11 @@ function buildScreen(state) {
     case 'rush_hit_result': {
       const isBig = game.pending.isBig;
       return `<div class="screen">
+        <p class="result-sub">${game.pending.spinsThisCycle}回転で当選</p>
+        <p class="chain-label">${game.rush.chainCount}連チャン中</p>
         <div class="vibun-box rush-box">
-          <p class="bonus-main ${isBig ? 'premium' : 'standard'}">${isBig ? '6000個' : '3000個'}</p>
-          <p class="bonus-sub">＋${isBig ? '5,400' : '2,800'}球獲得</p>
+          <p class="bonus-main ${isBig ? 'premium' : 'standard'}">HYPER喰種BONUS ${isBig ? '6000' : '3000'}</p>
+          <p class="bonus-sub">＋${isBig ? '5,600' : '2,800'}球獲得</p>
         </div>
         <button class="btn-action" onclick="handleRushHitContinue()" style="margin-top:16px;">
           ▶ RUSH継続へ

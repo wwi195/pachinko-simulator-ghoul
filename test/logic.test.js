@@ -30,27 +30,39 @@ test('P_ZUGAR and P_CHARGE are both 1/399.9', () => {
   assert.equal(logic.P_CHARGE, 1 / 399.9);
 });
 
-test('P_FALSE_ENZOKU keeps the 70% confidence ratio against the new P_ZUGAR', () => {
-  assert.equal(logic.P_FALSE_ENZOKU, logic.P_ZUGAR * (0.3 / 0.7));
+test('ENZOKU_CONFIDENCE_OPTIONS lists 40%/90% with 40% as default', () => {
+  assert.deepEqual(logic.ENZOKU_CONFIDENCE_OPTIONS, [40, 90]);
+  assert.equal(logic.DEFAULT_ENZOKU_CONFIDENCE, 40);
+});
+
+test('falseEnzokuProbability matches the confidence ratio against P_ZUGAR', () => {
+  assert.equal(logic.falseEnzokuProbability(40), logic.P_ZUGAR * (60 / 40));
+  assert.equal(logic.falseEnzokuProbability(90), logic.P_ZUGAR * (10 / 90));
 });
 
 test('spinNormal returns zugar when the first random draw beats P_ZUGAR', () => {
-  const result = withMockRandom([0], () => logic.spinNormal());
+  const result = withMockRandom([0], () => logic.spinNormal(40));
   assert.equal(result, 'zugar');
 });
 
-test('spinNormal returns false_enzoku when only the second draw beats P_FALSE_ENZOKU', () => {
-  const result = withMockRandom([0.999, 0], () => logic.spinNormal());
+test('spinNormal returns false_enzoku when only the second draw beats falseEnzokuProbability', () => {
+  const result = withMockRandom([0.999, 0], () => logic.spinNormal(40));
   assert.equal(result, 'false_enzoku');
 });
 
 test('spinNormal returns charge when only the third draw beats P_CHARGE', () => {
-  const result = withMockRandom([0.999, 0.999, 0], () => logic.spinNormal());
+  const result = withMockRandom([0.999, 0.999, 0], () => logic.spinNormal(40));
   assert.equal(result, 'charge');
 });
 
 test('spinNormal returns miss when every draw is at the high end', () => {
-  const result = withMockRandom([0.999, 0.999, 0.999], () => logic.spinNormal());
+  const result = withMockRandom([0.999, 0.999, 0.999], () => logic.spinNormal(40));
+  assert.equal(result, 'miss');
+});
+
+test('spinNormal at 90% confidence needs a much smaller second-draw threshold', () => {
+  // false_enzoku probability at 90% confidence is P_ZUGAR/9, far below 0.05
+  const result = withMockRandom([0.999, 0.05], () => logic.spinNormal(90));
   assert.equal(result, 'miss');
 });
 
@@ -116,7 +128,7 @@ test('applyRushSpin: a small hit resets ST to 130, adds 2800 actual / 3000 nomin
   assert.equal(rushState.nominalBalls, 3000);
 });
 
-test('applyRushSpin: a big hit resets ST to 130, adds 5400 actual / 6000 nominal balls', () => {
+test('applyRushSpin: a big hit resets ST to 130, adds 5600 actual / 6000 nominal balls', () => {
   const state = logic.createRushState();
   const { rushState, outcome } = withMockRandom([0, 0], () => logic.applyRushSpin(state));
   assert.equal(outcome, 'hit_big');
@@ -124,7 +136,7 @@ test('applyRushSpin: a big hit resets ST to 130, adds 5400 actual / 6000 nominal
   assert.equal(rushState.chainCount, 1);
   assert.equal(rushState.bonus3000, 0);
   assert.equal(rushState.bonus6000, 1);
-  assert.equal(rushState.actualBalls, 5400);
+  assert.equal(rushState.actualBalls, 5600);
   assert.equal(rushState.nominalBalls, 6000);
 });
 
@@ -135,6 +147,6 @@ test('applyRushSpin: hits accumulate chainCount and balls across repeated calls'
   assert.equal(state.chainCount, 2);
   assert.equal(state.bonus3000, 1);
   assert.equal(state.bonus6000, 1);
-  assert.equal(state.actualBalls, 2800 + 5400);
+  assert.equal(state.actualBalls, 2800 + 5600);
   assert.equal(state.nominalBalls, 3000 + 6000);
 });
