@@ -225,6 +225,10 @@ function handleRushSpin10() {
 function handleRushSkip() {
   for (;;) {
     if (runRushSpin({ silent: true })) return;
+    if (game.rush.stRemaining <= 10) {
+      setState('rush_idle');
+      return;
+    }
   }
 }
 
@@ -476,19 +480,21 @@ function buildScreen(state) {
         <button class="btn-sub" onclick="handleAfterZugarLt()" style="margin-top:12px;">続ける</button>
       </div>`;
 
-    case 'rush_idle':
+    case 'rush_idle': {
+      const skipDisabled = game.rush.stRemaining <= 10;
       return `<div class="screen">
         <p class="chain-label">${game.rush.chainCount}連チャン中</p>
-        <p class="rush-title">RUSH</p>
+        <p class="rush-title">3000ﾗｯｷｰﾄﾘｶﾞｰ</p>
         <p class="rush-sub">ST残り <span>${game.rush.stRemaining}</span> 回</p>
         <div class="rush-spin-btns">
           <button class="btn-rush-spin" onclick="handleRushSpin()">1回転</button>
           <button class="btn-rush-spin" onclick="handleRushSpin10()">10回転</button>
-          <button class="btn-rush-spin skip" onclick="handleRushSkip()">スキップ</button>
+          <button class="btn-rush-spin skip" ${skipDisabled ? 'disabled' : 'onclick="handleRushSkip()"'}>スキップ</button>
         </div>
         <p class="prob-hint">大当たり確率 1/95.3</p>
         <button class="btn-taiten" onclick="handleTaiten()">退店する</button>
       </div>`;
+    }
 
     case 'rush_hit_result': {
       const isBig = game.pending.isBig;

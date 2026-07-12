@@ -274,12 +274,32 @@ body {
 
 /* RUSH */
 .rush-title {
-  font-size: 52px;
+  font-size: 40px;
   font-weight: bold;
-  color: #ff4444;
-  letter-spacing: 4px;
-  text-shadow: 0 0 30px rgba(255,68,68,0.8);
-  line-height: 1;
+  letter-spacing: 1px;
+  line-height: 1.15;
+  text-align: center;
+  background: linear-gradient(90deg, #ff3b3b, #ff9d3b, #ffe93b, #3bff6a, #3bcfff, #6a3bff, #ff3bcf, #ff3b3b);
+  background-size: 400% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: rush-rainbow 3s linear infinite;
+}
+
+@keyframes rush-rainbow {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+.btn-rush-spin:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.btn-rush-spin.skip:disabled {
+  background: #333;
+  border-color: #555;
+  color: #888;
 }
 
 .rush-sub { font-size: 16px; color: #ccc; }
