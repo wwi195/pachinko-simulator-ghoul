@@ -473,6 +473,7 @@ function buildScreen(state) {
     case 'win_result':
       return `<div class="screen">
         <p class="result-main win">図柄ぞろい！</p>
+        <p class="result-sub">${game.pending.interval.toLocaleString()}回転</p>
         <p style="font-size:56px; margin:4px 0;">🎰</p>
         <button class="btn-action" onclick="handleZugarVibun()">▶ 振り分けへ</button>
       </div>`;
