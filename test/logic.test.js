@@ -164,3 +164,9 @@ test('streakProbability for each kind', () => {
   assert.ok(Math.abs(logic.streakProbability('enzoku_miss', 5, 40) - Math.pow(0.6, 5)) < 1e-12);
   assert.ok(Math.abs(logic.P_CHARGE_NO_LT_BEFORE_ZUGAR - 0.495) < 1e-9);
 });
+
+test('tanpatsuProbability combines charge/zugar one-shot rates', () => {
+  const r = 1 - logic.P_ST_HIT;
+  const expected = 0.5 * (0.99 + 0.01 * r) + 0.5 * (0.5 + 0.5 * r);
+  assert.ok(Math.abs(logic.tanpatsuProbability() - expected) < 1e-12);
+});

@@ -46,6 +46,7 @@ function streakProbability(kind, n, confidencePercent) {
     case 'lt_fail':      return Math.pow(1 - P_ZUGAR_LT, n);
     case 'lt_win':       return Math.pow(P_ZUGAR_LT, n);
     case 'enzoku_miss':  return Math.pow(1 - confidencePercent / 100, n);
+    case 'tanpatsu':     return Math.pow(tanpatsuProbability(), n);
     default:             return 1;
   }
 }
@@ -72,6 +73,17 @@ const P_ST_HIT = 1 - Math.pow(1 - P_RUSH, RUSH_ST_COUNT);
 function chainProbability(k) {
   const atLeast = Math.pow(P_ST_HIT, k);
   return { exact: atLeast * (1 - P_ST_HIT), atLeast };
+}
+
+// 大当たり1回が「単発」で終わる確率。
+// 単発 = グールチャージでLTならず／図柄揃いでLTならず／LT突入後1連で終了。
+// チャージと図柄揃いは同確率(1/399.9)なので各50%。
+function tanpatsuProbability() {
+  const rushOneShot = 1 - P_ST_HIT;
+  const pCharge = P_CHARGE / (P_CHARGE + P_ZUGAR);
+  const fromCharge = (1 - P_CHARGE_LT) + P_CHARGE_LT * rushOneShot;
+  const fromZugar  = (1 - P_ZUGAR_LT)  + P_ZUGAR_LT  * rushOneShot;
+  return pCharge * fromCharge + (1 - pCharge) * fromZugar;
 }
 
 function createRushState() {
@@ -136,6 +148,7 @@ if (typeof module !== 'undefined' && module.exports) {
     RUSH_ST_COUNT,
     P_ST_HIT,
     chainProbability,
+    tanpatsuProbability,
     createRushState,
     applyRushSpin,
   };

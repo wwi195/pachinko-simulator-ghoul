@@ -11,7 +11,8 @@ const game = {
   currentSpins: 0,
   lastHitSpins: 0,
   zugarCount: 0,
-  streaks: { charge_no_lt: 0, lt_fail: 0, lt_win: 0, enzoku_miss: 0 },
+  streaks: { charge_no_lt: 0, lt_fail: 0, lt_win: 0, enzoku_miss: 0, tanpatsu: 0 },
+  lastChainSpins: 0,
   chargeCount: 0,
   ltEntryCount: 0,
   totalRushHits: 0,
@@ -147,6 +148,7 @@ function handleZugarLtJudge() {
   } else {
     game.streaks.lt_fail++;
     game.streaks.lt_win = 0;
+    game.streaks.tanpatsu++;
     addLog('LTチャレンジ失敗 → 通常へ');
     setState('zugar_lt_lose');
   }
@@ -159,8 +161,9 @@ function handleAfterZugarLt() {
 function handleChargeContinue() {
   if (!game.pending.chargeLt) {
     game.streaks.charge_no_lt++;
-    // 5回連続以降は、LTならずの連続回数と発生率を表示する画面を挟む
-    if (game.streaks.charge_no_lt >= STREAK_NOTICE_MIN) {
+    game.streaks.tanpatsu++;
+    // 連続回数の告知が出る場合は、LTならずの画面を挟む
+    if (game.streaks.charge_no_lt >= STREAK_NOTICE_MIN || game.streaks.tanpatsu >= TANPATSU_NOTICE_MIN) {
       setState('charge_lt_lose');
       return;
     }
@@ -214,6 +217,13 @@ function runRushSpin(opts = {}) {
   }
 
   if (outcome === 'st_end') {
+    // 1連で終了なら単発、2連以上なら単発カウントとハマり起点をリセット
+    if (rushState.chainCount === 0) {
+      game.streaks.tanpatsu++;
+    } else {
+      game.streaks.tanpatsu = 0;
+      game.lastChainSpins = game.totalSpins;
+    }
     addLog('ST終了 → RUSHリザルトへ');
     setState('rush_result');
     return true;
@@ -303,7 +313,8 @@ function resetGame() {
   game.rushEntryBonus  = null;
   game.pending         = {};
   game.eigyoAlertShown = false;
-  game.streaks         = { charge_no_lt: 0, lt_fail: 0, lt_win: 0, enzoku_miss: 0 };
+  game.streaks         = { charge_no_lt: 0, lt_fail: 0, lt_win: 0, enzoku_miss: 0, tanpatsu: 0 };
+  game.lastChainSpins  = 0;
   game.log             = [];
   render();
 }
@@ -326,6 +337,21 @@ function streakNoticeHtml(kind, label) {
   const pctText = pct >= 1 ? pct.toFixed(1) : pct >= 0.01 ? pct.toFixed(2) : pct.toPrecision(2);
   const rare = pct < 1 ? `<br>約${Math.round(1 / prob).toLocaleString()}回に1回の割合です` : '';
   return `<p class="streak-notice">${label}　${n}回連続中<br>発生率 ${pctText}%${rare}</p>`;
+}
+
+// 単発の連続告知（7回連続目から）。前回の連チャンからのハマり回転数も表示
+const TANPATSU_NOTICE_MIN = 7;
+
+function tanpatsuNoticeHtml() {
+  const n = game.streaks.tanpatsu;
+  if (n < TANPATSU_NOTICE_MIN) return '';
+  const prob = streakProbability('tanpatsu', n);
+  const pct = prob * 100;
+  const pctText = pct >= 1 ? pct.toFixed(1) : pct >= 0.01 ? pct.toFixed(2) : pct.toPrecision(2);
+  const rare = pct < 1 ? `<br>約${Math.round(1 / prob).toLocaleString()}回に1回の割合です` : '';
+  const hamari = game.totalSpins - game.lastChainSpins;
+  return `<p class="streak-notice">単発　${n}回連続中<br>発生率 ${pctText}%${rare}<br>
+    前回の連チャンから ${hamari.toLocaleString()}回転ハマり</p>`;
 }
 
 // 確率の表示。1%未満なら「約○回に1回」の希少性表示を付ける
@@ -497,6 +523,7 @@ function buildScreen(state) {
       return `<div class="screen">
         <p class="result-main lose" style="font-size:24px;">チャージ　LTならず</p>
         ${streakNoticeHtml('charge_no_lt', 'グールチャージ（LTならず）')}
+        ${tanpatsuNoticeHtml()}
         <button class="btn-sub" onclick="backToNormal()" style="margin-top:12px;">続ける</button>
       </div>`;
 
@@ -537,6 +564,7 @@ function buildScreen(state) {
       return `<div class="screen">
         <p class="result-main lose" style="font-size:28px;">LTならず…</p>
         ${streakNoticeHtml('lt_fail', 'LT突入ならず')}
+        ${tanpatsuNoticeHtml()}
         <button class="btn-sub" onclick="handleAfterZugarLt()" style="margin-top:12px;">続ける</button>
       </div>`;
 
@@ -631,6 +659,7 @@ function buildScreen(state) {
           <p class="rr-section">ボーナス内訳</p>
           ${lines.join('')}
         </div>
+        ${tanpatsuNoticeHtml()}
         <button class="btn-action" onclick="handleRushResultEnd()" style="margin-top:16px;">▶ 通常へ戻る</button>
       </div>`;
     }
