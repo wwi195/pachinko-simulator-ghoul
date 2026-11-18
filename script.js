@@ -96,8 +96,9 @@ function runNormalSpin() {
 
 function handleStart() {
   if (checkEigyoAlert()) return;
+  // 何も起きなかった回転は「はずれ」画面を挟まず、そのまま通常画面に留まる
   if (!runNormalSpin()) {
-    setState('lose_result');
+    setState('normal_idle');
   }
 }
 
