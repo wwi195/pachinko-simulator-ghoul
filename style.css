@@ -546,3 +546,12 @@ body {
   border-color: #ff6644;
   color: #fff;
 }
+
+/* 連続発生の告知 */
+.streak-notice {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #c9a227;
+}

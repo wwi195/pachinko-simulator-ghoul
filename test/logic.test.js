@@ -157,3 +157,10 @@ test('chainProbability: exact = p^k(1-p), atLeast = p^k', () => {
   assert.ok(Math.abs(logic.chainProbability(0).exact - (1 - p)) < 1e-12);
   assert.ok(Math.abs(logic.chainProbability(10).atLeast - Math.pow(p, 10)) < 1e-12);
 });
+
+test('streakProbability for each kind', () => {
+  assert.ok(Math.abs(logic.streakProbability('lt_fail', 5) - 1 / 32) < 1e-12);
+  assert.ok(Math.abs(logic.streakProbability('lt_win', 5) - 1 / 32) < 1e-12);
+  assert.ok(Math.abs(logic.streakProbability('enzoku_miss', 5, 40) - Math.pow(0.6, 5)) < 1e-12);
+  assert.ok(Math.abs(logic.P_CHARGE_NO_LT_BEFORE_ZUGAR - 0.495) < 1e-9);
+});

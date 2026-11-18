@@ -36,6 +36,20 @@ function rollZugarLtChallenge() {
   return Math.random() < P_ZUGAR_LT;
 }
 
+// ---- 連続発生の確率 ----
+// ① チャージ(LTならず)が、図柄揃いを挟まずにn回連続する確率。
+//    チャージと図柄揃いの「どちらが先に来るか」の比 × LTならず率 を n乗。
+const P_CHARGE_NO_LT_BEFORE_ZUGAR = (P_CHARGE * (1 - P_CHARGE_LT)) / (P_CHARGE + P_ZUGAR);
+function streakProbability(kind, n, confidencePercent) {
+  switch (kind) {
+    case 'charge_no_lt': return Math.pow(P_CHARGE_NO_LT_BEFORE_ZUGAR, n);
+    case 'lt_fail':      return Math.pow(1 - P_ZUGAR_LT, n);
+    case 'lt_win':       return Math.pow(P_ZUGAR_LT, n);
+    case 'enzoku_miss':  return Math.pow(1 - confidencePercent / 100, n);
+    default:             return 1;
+  }
+}
+
 const P_RUSH     = 1 / 95.3;
 const P_RUSH_BIG = 0.03;
 
@@ -113,6 +127,8 @@ if (typeof module !== 'undefined' && module.exports) {
     spinNormal,
     rollChargeLt,
     rollZugarLtChallenge,
+    P_CHARGE_NO_LT_BEFORE_ZUGAR,
+    streakProbability,
     P_RUSH,
     P_RUSH_BIG,
     spinRush,

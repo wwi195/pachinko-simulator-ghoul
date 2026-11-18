@@ -11,6 +11,7 @@ const game = {
   currentSpins: 0,
   lastHitSpins: 0,
   zugarCount: 0,
+  streaks: { charge_no_lt: 0, lt_fail: 0, lt_win: 0, enzoku_miss: 0 },
   chargeCount: 0,
   ltEntryCount: 0,
   totalRushHits: 0,
@@ -112,15 +113,18 @@ function autoSpin(count) {
 
 function handleEnzokuJudge() {
   if (game.pending.type === 'zugar') {
+    game.streaks.enzoku_miss = 0;
     addLog('図柄ぞろい！', 'win');
     setState('win_result');
   } else {
+    game.streaks.enzoku_miss++;
     addLog('はずれ');
     setState('lose_result');
   }
 }
 
 function handleZugarVibun() {
+  game.streaks.charge_no_lt = 0;
   addBalls(1400);
   game.zugarCount++;
   game.currentSpins = 0;
@@ -135,10 +139,14 @@ function handleZugarLtChallenge() {
 
 function handleZugarLtJudge() {
   if (rollZugarLtChallenge()) {
+    game.streaks.lt_win++;
+    game.streaks.lt_fail = 0;
     enterRush({ label: '初当たり', nominal: 1500, actual: 1400 });
     addLog('LTチャレンジ成功！ → RUSH突入', 'rush');
     setState('zugar_lt_win');
   } else {
+    game.streaks.lt_fail++;
+    game.streaks.lt_win = 0;
     addLog('LTチャレンジ失敗 → 通常へ');
     setState('zugar_lt_lose');
   }
@@ -149,7 +157,16 @@ function handleAfterZugarLt() {
 }
 
 function handleChargeContinue() {
+  if (!game.pending.chargeLt) {
+    game.streaks.charge_no_lt++;
+    // 5回連続以降は、LTならずの連続回数と発生率を表示する画面を挟む
+    if (game.streaks.charge_no_lt >= STREAK_NOTICE_MIN) {
+      setState('charge_lt_lose');
+      return;
+    }
+  }
   if (game.pending.chargeLt) {
+    game.streaks.charge_no_lt = 0;
     setState('charge_lt_pending');
     setTimeout(() => {
       addLog('LT当選！', 'rush');
@@ -286,6 +303,7 @@ function resetGame() {
   game.rushEntryBonus  = null;
   game.pending         = {};
   game.eigyoAlertShown = false;
+  game.streaks         = { charge_no_lt: 0, lt_fail: 0, lt_win: 0, enzoku_miss: 0 };
   game.log             = [];
   render();
 }
@@ -295,6 +313,19 @@ function resetGame() {
 function setState(state) {
   game.state = state;
   render();
+}
+
+// 連続発生の告知（5回連続目から表示）。1%未満なら希少性も付ける
+const STREAK_NOTICE_MIN = 5;
+
+function streakNoticeHtml(kind, label) {
+  const n = game.streaks[kind];
+  if (n < STREAK_NOTICE_MIN) return '';
+  const prob = streakProbability(kind, n, game.enzokuConfidence);
+  const pct = prob * 100;
+  const pctText = pct >= 1 ? pct.toFixed(1) : pct >= 0.01 ? pct.toFixed(2) : pct.toPrecision(2);
+  const rare = pct < 1 ? `<br>約${Math.round(1 / prob).toLocaleString()}回に1回の割合です` : '';
+  return `<p class="streak-notice">${label}　${n}回連続中<br>発生率 ${pctText}%${rare}</p>`;
 }
 
 // 確率の表示。1%未満なら「約○回に1回」の希少性表示を付ける
@@ -449,6 +480,7 @@ function buildScreen(state) {
     case 'lose_result':
       return `<div class="screen">
         <p class="result-main lose">はずれ</p>
+        ${streakNoticeHtml('enzoku_miss', '先バレはずれ')}
         <button class="btn-sub" onclick="backToNormal()" style="margin-top:8px;">続ける</button>
       </div>`;
 
@@ -458,6 +490,13 @@ function buildScreen(state) {
         <p class="result-main charge"><span style="color:#ff4444;">喰</span><span style="color:#ccc;">種CHARGE</span></p>
         <p class="result-balls">＋280球</p>
         <button class="btn-sub" onclick="handleChargeContinue()">続ける</button>
+      </div>`;
+
+    case 'charge_lt_lose':
+      return `<div class="screen">
+        <p class="result-main lose" style="font-size:24px;">チャージ　LTならず</p>
+        ${streakNoticeHtml('charge_no_lt', 'グールチャージ（LTならず）')}
+        <button class="btn-sub" onclick="backToNormal()" style="margin-top:12px;">続ける</button>
       </div>`;
 
     case 'charge_lt_announce':
@@ -487,6 +526,7 @@ function buildScreen(state) {
     case 'zugar_lt_win':
       return `<div class="screen">
         <p class="add-rush-title">LT突入！</p>
+        ${streakNoticeHtml('lt_win', 'LT突入')}
         <img src="画像/RUSH中　追加ボーナス演出.png" class="enzoku-img" alt="LT突入演出"
           onerror="this.style.display='none'">
         <button class="btn-action" onclick="handleAfterZugarLt()">▶ RUSHへ</button>
@@ -495,6 +535,7 @@ function buildScreen(state) {
     case 'zugar_lt_lose':
       return `<div class="screen">
         <p class="result-main lose" style="font-size:28px;">LTならず…</p>
+        ${streakNoticeHtml('lt_fail', 'LT突入ならず')}
         <button class="btn-sub" onclick="handleAfterZugarLt()" style="margin-top:12px;">続ける</button>
       </div>`;
 
