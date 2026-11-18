@@ -226,7 +226,7 @@ function runRushSpin(opts = {}) {
   addBalls(balls);
   game.pending = { isBig, spinsThisCycle: game.rushCycleSpins };
   game.rushCycleSpins = 0;
-  addLog(`${isBig ? '6000個' : '3000個'}！ ＋${balls}球 (${rushState.chainCount}連)`, 'rush');
+  addLog(`${isBig ? '6000個' : '3000個'}！ ＋${balls}球 (${rushState.chainCount + 1}連)`, 'rush');
   setState('rush_hit_result');
   return true;
 }
@@ -542,7 +542,7 @@ function buildScreen(state) {
     case 'rush_idle': {
       const skipDisabled = game.rush.stRemaining <= 10;
       return `<div class="screen">
-        <p class="chain-label">${game.rush.chainCount}連チャン中</p>
+        <p class="chain-label">${game.rush.chainCount + 1}連チャン中</p>
         <p class="rush-title">3000ﾗｯｷｰﾄﾘｶﾞｰ</p>
         <p class="rush-sub">ST残り <span>${game.rush.stRemaining}</span> 回</p>
         <div class="rush-spin-btns">
@@ -559,7 +559,7 @@ function buildScreen(state) {
       const isBig = game.pending.isBig;
       return `<div class="screen">
         <p class="result-sub">${game.pending.spinsThisCycle}回転で当選</p>
-        <p class="chain-label">${game.rush.chainCount}連チャン中</p>
+        <p class="chain-label">${game.rush.chainCount + 1}連チャン中</p>
         <div class="vibun-box rush-box">
           <p class="bonus-main ${isBig ? 'premium' : 'standard'}">HYPER喰種BONUS ${isBig ? '6000' : '3000'}</p>
           <p class="bonus-sub">＋${isBig ? '5,600' : '2,800'}球獲得</p>
@@ -601,6 +601,8 @@ function buildScreen(state) {
       }
       if (lines.length === 0) lines.push(`<p style="color:#555; font-size:13px;">大当たりなし</p>`);
 
+      // 初当たりを1連チャン目として数える（RUSH中の当選回数＋1）
+      const totalChain = s.chainCount + 1;
       const dist = chainProbability(s.chainCount);
       const totalActual  = s.actualBalls  + (bonus ? bonus.actual  : 0);
       const totalNominal = s.nominalBalls + (bonus ? bonus.nominal : 0);
@@ -610,7 +612,7 @@ function buildScreen(state) {
         <div class="rush-result-box">
           <div class="result-row highlight">
             <span class="rr-label">連チャン数</span>
-            <span class="rr-val gold">${s.chainCount}連チャン</span>
+            <span class="rr-val gold">${totalChain}連チャン</span>
           </div>
           <div class="result-row">
             <span class="rr-label">獲得出玉</span>
@@ -622,8 +624,8 @@ function buildScreen(state) {
           </div>
           <hr class="result-hr">
           <p class="rr-section">連チャン分布（ST当選率 ${(P_ST_HIT * 100).toFixed(1)}%）</p>
-          ${probRowHtml(`${s.chainCount}連で終わる確率`, dist.exact)}
-          ${probRowHtml(`${s.chainCount}連以上に届く確率`, dist.atLeast)}
+          ${probRowHtml(`${totalChain}連で終わる確率`, dist.exact)}
+          ${probRowHtml(`${totalChain}連以上に届く確率`, dist.atLeast)}
           <hr class="result-hr">
           <p class="rr-section">ボーナス内訳</p>
           ${lines.join('')}
