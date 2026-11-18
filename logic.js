@@ -49,6 +49,17 @@ function rollRushHitType() {
 
 const RUSH_ST_COUNT = 130;
 
+// ST130回転中に1回以上当選する確率
+const P_ST_HIT = 1 - Math.pow(1 - P_RUSH, RUSH_ST_COUNT);
+
+// RUSH中の当選回数(連チャン数)kに対する分布。
+// exact: ちょうどk連で終わる確率 = p^k × (1-p)
+// atLeast: k連以上に届く確率 = p^k
+function chainProbability(k) {
+  const atLeast = Math.pow(P_ST_HIT, k);
+  return { exact: atLeast * (1 - P_ST_HIT), atLeast };
+}
+
 function createRushState() {
   return {
     stRemaining: RUSH_ST_COUNT,
@@ -107,6 +118,8 @@ if (typeof module !== 'undefined' && module.exports) {
     spinRush,
     rollRushHitType,
     RUSH_ST_COUNT,
+    P_ST_HIT,
+    chainProbability,
     createRushState,
     applyRushSpin,
   };

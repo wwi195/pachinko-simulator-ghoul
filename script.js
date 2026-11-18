@@ -296,6 +296,19 @@ function setState(state) {
   render();
 }
 
+// 確率の表示。1%未満なら「約○回に1回」の希少性表示を付ける
+function probRowHtml(label, prob) {
+  const pct = prob * 100;
+  const pctText = pct >= 1 ? pct.toFixed(1) : pct >= 0.01 ? pct.toFixed(2) : pct.toPrecision(2);
+  const rare = pct < 1
+    ? `<p class="rr-rare">約${Math.round(1 / prob).toLocaleString()}回に1回の割合です</p>`
+    : '';
+  return `<div class="result-row">
+      <span class="rr-label">${label}</span>
+      <span class="rr-val">${pctText}%</span>
+    </div>${rare}`;
+}
+
 function render() {
   renderHeader();
   renderModeBadge();
@@ -546,6 +559,7 @@ function buildScreen(state) {
       }
       if (lines.length === 0) lines.push(`<p style="color:#555; font-size:13px;">大当たりなし</p>`);
 
+      const dist = chainProbability(s.chainCount);
       const totalActual  = s.actualBalls  + (bonus ? bonus.actual  : 0);
       const totalNominal = s.nominalBalls + (bonus ? bonus.nominal : 0);
 
@@ -564,6 +578,10 @@ function buildScreen(state) {
             <span class="rr-label">表示出玉</span>
             <span class="rr-val">${totalNominal.toLocaleString()}個</span>
           </div>
+          <hr class="result-hr">
+          <p class="rr-section">連チャン分布（ST当選率 ${(P_ST_HIT * 100).toFixed(1)}%）</p>
+          ${probRowHtml(`${s.chainCount}連で終わる確率`, dist.exact)}
+          ${probRowHtml(`${s.chainCount}連以上に届く確率`, dist.atLeast)}
           <hr class="result-hr">
           <p class="rr-section">ボーナス内訳</p>
           ${lines.join('')}

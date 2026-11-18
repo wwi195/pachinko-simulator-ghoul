@@ -151,3 +151,9 @@ test('applyRushSpin: hits accumulate chainCount and balls across repeated calls'
   assert.equal(state.actualBalls, 2800 + 5600);
   assert.equal(state.nominalBalls, 3000 + 6000);
 });
+
+test('chainProbability: exact = p^k(1-p), atLeast = p^k', () => {
+  const p = logic.P_ST_HIT;
+  assert.ok(Math.abs(logic.chainProbability(0).exact - (1 - p)) < 1e-12);
+  assert.ok(Math.abs(logic.chainProbability(10).atLeast - Math.pow(p, 10)) < 1e-12);
+});
