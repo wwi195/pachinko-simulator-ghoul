@@ -15,6 +15,7 @@ const game = {
   lastChainSpins: 0,
   hitHistory: [],     // 大当たり履歴 [{games, kind, chain}]（新しい順。chain=null は結果待ち、0はRUSHなし）
   lastAnyHitTotal: 0, // 直前の大当たり（チャージ・図柄揃い）時点の総回転数
+  slump: [{ x: 0, y: 0 }], // 差玉推移 [{x:総回転数, y:差玉}]
   chargeCount: 0,
   ltEntryCount: 0,
   totalRushHits: 0,
@@ -78,6 +79,7 @@ function runNormalSpin() {
   game.totalSpins++;
   game.currentSpins++;
   consumeSpinCost();
+  recordSlump();
   const result = spinNormal(game.enzokuConfidence);
   const interval = game.totalSpins - game.lastHitSpins;
 
@@ -323,6 +325,7 @@ function resetGame() {
   game.lastChainSpins  = 0;
   game.hitHistory      = [];
   game.lastAnyHitTotal = 0;
+  game.slump           = [{ x: 0, y: 0 }];
   game.log             = [];
   render();
 }
@@ -375,6 +378,76 @@ function probRowHtml(label, prob) {
     </div>${rare}`;
 }
 
+// ---- 差玉推移グラフ ----
+// 差玉 = 持ち玉 − 投資玉（1000円=250玉、等価換算）
+function currentDiffBalls() {
+  return Math.round(game.mochiDama - game.toushi / 4);
+}
+function recordSlump() {
+  const y = currentDiffBalls();
+  const pts = game.slump;
+  const last = pts[pts.length - 1];
+  if (last.x === game.totalSpins && last.y === y) return;
+  // 同じ回転数での変化（大当たり・RUSHの出玉）は縦に伸ばす
+  pts.push({ x: game.totalSpins, y });
+  if (pts.length > 40000) {
+    game.slump = pts.filter((_, i) => i % 2 === 0 || i === pts.length - 1);
+  }
+}
+
+function niceStep(range) {
+  const raw = range / 4;
+  const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw / pow;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * pow;
+}
+
+function renderSlumpGraph() {
+  const el = document.getElementById('slump-svg');
+  if (!el) return;
+  recordSlump();
+  const pts = game.slump;
+  const W = 360, H = 170, L = 46, R = 8, T = 10, B = 22;
+  const maxX = Math.max(100, pts[pts.length - 1].x);
+  let minY = 0, maxY = 0;
+  pts.forEach((p) => { if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y; });
+  if (maxY - minY < 1000) { maxY += 500; minY -= 500; }
+  const step = niceStep(maxY - minY);
+  minY = Math.floor(minY / step) * step;
+  maxY = Math.ceil(maxY / step) * step;
+  const sx = (x) => L + (x / maxX) * (W - L - R);
+  const sy = (y) => T + (1 - (y - minY) / (maxY - minY)) * (H - T - B);
+
+  let grid = '';
+  for (let v = minY; v <= maxY + 1e-9; v += step) {
+    const y = sy(v).toFixed(1);
+    grid += `<line x1="${L}" y1="${y}" x2="${W - R}" y2="${y}" class="${v === 0 ? 'sl-zero' : 'sl-grid'}"/>`;
+    grid += `<text x="${L - 4}" y="${(+y + 3).toFixed(1)}" class="sl-ylab">${v.toLocaleString()}</text>`;
+  }
+  const xStep = niceStep(maxX);
+  for (let v = 0; v <= maxX + 1e-9; v += xStep) {
+    const anchor = sx(v) > W - R - 16 ? ' style="text-anchor:end"' : '';
+    grid += `<text x="${sx(v).toFixed(1)}" y="${H - 6}" class="sl-xlab"${anchor}>${v.toLocaleString()}</text>`;
+  }
+  // 描画点を間引く（横幅1pxあたり最大2点）
+  const maxPts = (W - L - R) * 2;
+  const stride = Math.max(1, Math.floor(pts.length / maxPts));
+  const line = pts.filter((_, i) => i % stride === 0 || i === pts.length - 1)
+    .map((p) => `${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(' ');
+  const cur = pts[pts.length - 1];
+  const cls = cur.y >= 0 ? 'plus' : 'minus';
+  // 0より上は緑、下は赤で塗り分ける
+  const zeroOff = Math.min(1, Math.max(0, (sy(0) - T) / (H - T - B))).toFixed(4);
+  el.innerHTML = `<defs><linearGradient id="sl-grad" gradientUnits="userSpaceOnUse" x1="0" y1="${T}" x2="0" y2="${H - B}">
+      <stop offset="${zeroOff}" stop-color="#44cc88"/><stop offset="${zeroOff}" stop-color="#ff6b6b"/>
+    </linearGradient></defs>
+    ${grid}
+    <polyline points="${line}" class="sl-line" stroke="url(#sl-grad)"/>
+    <circle cx="${sx(cur.x).toFixed(1)}" cy="${sy(cur.y).toFixed(1)}" r="3" class="sl-dot ${cls}"/>`;
+  document.getElementById('slump-now').innerHTML =
+    `現在 <b class="${cls}">${cur.y >= 0 ? '+' : ''}${cur.y.toLocaleString()}玉</b>（${game.totalSpins.toLocaleString()}回転）`;
+}
+
 // ---- 大当たり履歴グラフ ----
 function recordHit(kind, chain) {
   const games = game.totalSpins - game.lastAnyHitTotal;
@@ -420,6 +493,7 @@ function render() {
   renderMainScreen();
   renderRushStats();
   renderHitGraph();
+  renderSlumpGraph();
 }
 
 function renderHeader() {
